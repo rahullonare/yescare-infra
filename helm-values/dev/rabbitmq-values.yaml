@@ -1,0 +1,13 @@
+# RabbitMQ — SQS replacement (AMQP). Password supplied by do-dev-stack-install.sh (--set).
+auth:
+  username: yescare
+persistence:
+  enabled: true
+  size: 4Gi
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+extraPlugins: "rabbitmq_management rabbitmq_prometheus"

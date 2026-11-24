@@ -1,0 +1,62 @@
+apiVersion: v1
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.monitoring.svc.cluster.local:9090
+        isDefault: true
+        jsonData:
+          timeInterval: "15s"
+          exemplarTraceIdDestinations:
+            - name: traceID
+              datasourceUid: tempo
+
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        jsonData:
+          derivedFields:
+            # dev/prod logs are JSON (LogstashEncoder) → match "traceId":"<hex>".
+            # Prefer the structured field so the "View Trace" link works on JSON logs.
+            - datasourceUid: tempo
+              matcherRegex: '"traceId":"([a-f0-9]+)"'
+              name: TraceID
+              url: '$${__value.raw}'
+              urlDisplayLabel: "View Trace"
+            # Fallback for any plain-text [traceId=...] lines (local-style format)
+            - datasourceUid: tempo
+              matcherRegex: '\[traceId=([a-f0-9]+)\]'
+              name: TraceID
+              url: '$${__value.raw}'
+              urlDisplayLabel: "View Trace"
+
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: "-1m"
+            spanEndTimeShift: "1m"
+            tags: [{ key: "app" }]
+            filterByTraceID: true
+          serviceMap:
+            datasourceUid: prometheus
+          nodeGraph:
+            enabled: true
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"datasources.yaml":"apiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    access: proxy\n    url: http://prometheus.monitoring.svc.cluster.local:9090\n    isDefault: true\n    jsonData:\n      timeInterval: \"15s\"\n      exemplarTraceIdDestinations:\n        - name: traceID\n          datasourceUid: tempo\n\n  - name: Loki\n    type: loki\n    access: proxy\n    url: http://loki.monitoring.svc.cluster.local:3100\n    jsonData:\n      derivedFields:\n        # dev/prod logs are JSON (LogstashEncoder) → match \"traceId\":\"\u003chex\u003e\".\n        # Prefer the structured field so the \"View Trace\" link works on JSON logs.\n        - datasourceUid: tempo\n          matcherRegex: '\"traceId\":\"([a-f0-9]+)\"'\n          name: TraceID\n          url: '$${__value.raw}'\n          urlDisplayLabel: \"View Trace\"\n        # Fallback for any plain-text [traceId=...] lines (local-style format)\n        - datasourceUid: tempo\n          matcherRegex: '\\[traceId=([a-f0-9]+)\\]'\n          name: TraceID\n          url: '$${__value.raw}'\n          urlDisplayLabel: \"View Trace\"\n\n  - name: Tempo\n    uid: tempo\n    type: tempo\n    access: proxy\n    url: http://tempo.monitoring.svc.cluster.local:3200\n    jsonData:\n      tracesToLogsV2:\n        datasourceUid: loki\n        spanStartTimeShift: \"-1m\"\n        spanEndTimeShift: \"1m\"\n        tags: [{ key: \"app\" }]\n        filterByTraceID: true\n      serviceMap:\n        datasourceUid: prometheus\n      nodeGraph:\n        enabled: true\n"},"kind":"ConfigMap","metadata":{"annotations":{},"creationTimestamp":"2026-05-24T03:03:38Z","name":"grafana-datasources","namespace":"monitoring","resourceVersion":"13962612","uid":"0097a8c9-914d-4daf-bc68-12893595c952"}}
+  creationTimestamp: "2026-06-13T20:27:35Z"
+  name: grafana-datasources
+  namespace: monitoring
+  resourceVersion: "3399892"
+  uid: c23be5f0-1fd1-40c5-9124-68f17a810fcc

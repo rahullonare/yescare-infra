@@ -1,0 +1,40 @@
+
+# Terraform working directories
+**/.terraform/
+
+# Terraform state
+*.tfstate
+*.tfstate.*
+
+# Sensitive Terraform variables
+*.tfvars
+!*.tfvars.example
+
+# Environment secrets
+*.env
+!.env.example
+!.env.template
+
+# Sensitive credentials
+*.pem
+*.key
+
+# All environment variable files and variants
+*.env*
+.env*
+!*.env.example
+!*.env.template
+
+# All Terraform variable files and variants
+*.tfvars*
+!*.tfvars.example
+
+# Local Claude configuration
+.claude/settings.local.json
+
+# Generated Helm cache
+**/.helm/cache/
+
+# Terraform plan output
+**/plan.txt
+*.tfplan

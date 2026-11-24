@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRoleBinding","metadata":{"annotations":{},"name":"promtail"},"roleRef":{"apiGroup":"rbac.authorization.k8s.io","kind":"ClusterRole","name":"promtail"},"subjects":[{"kind":"ServiceAccount","name":"promtail","namespace":"monitoring"}]}
+  creationTimestamp: "2026-06-13T20:34:59Z"
+  name: promtail
+  resourceVersion: "3402205"
+  uid: 5b08be34-c694-425f-bb9f-75ab969bcb7e
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: promtail
+subjects:
+- kind: ServiceAccount
+  name: promtail
+  namespace: monitoring

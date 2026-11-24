@@ -1,0 +1,149 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"grafana","namespace":"monitoring"},"spec":{"ports":[{"port":3000,"targetPort":3000}],"selector":{"app":"grafana"}}}
+    creationTimestamp: "2026-06-13T20:45:44Z"
+    name: grafana
+    namespace: monitoring
+    resourceVersion: "3405498"
+    uid: 863fac2d-2455-4b05-962e-cc280e8d9722
+  spec:
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 3000
+      protocol: TCP
+      targetPort: 3000
+    selector:
+      app: grafana
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"loki","namespace":"monitoring"},"spec":{"ports":[{"port":3100,"targetPort":3100}],"selector":{"app":"loki"}}}
+    creationTimestamp: "2026-06-13T20:45:44Z"
+    name: loki
+    namespace: monitoring
+    resourceVersion: "3405480"
+    uid: fc9ce520-a989-4ef1-b782-31459a73fb34
+  spec:
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 3100
+      protocol: TCP
+      targetPort: 3100
+    selector:
+      app: loki
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"otel-collector","namespace":"monitoring"},"spec":{"ports":[{"name":"grpc","port":4317,"targetPort":4317},{"name":"http","port":4318,"targetPort":4318},{"name":"metrics","port":8888,"targetPort":8888}],"selector":{"app":"otel-collector"}}}
+    creationTimestamp: "2026-06-13T21:08:53Z"
+    name: otel-collector
+    namespace: monitoring
+    resourceVersion: "3412325"
+    uid: af0476c0-e63d-455f-97e2-9593358c856e
+  spec:
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: grpc
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    - name: http
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
+    - name: metrics
+      port: 8888
+      protocol: TCP
+      targetPort: 8888
+    selector:
+      app: otel-collector
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"prometheus","namespace":"monitoring"},"spec":{"ports":[{"port":9090,"targetPort":9090}],"selector":{"app":"prometheus"}}}
+    creationTimestamp: "2026-06-13T20:45:44Z"
+    name: prometheus
+    namespace: monitoring
+    resourceVersion: "3405484"
+    uid: b35a8314-2b83-409f-b63d-02ab8597ab60
+  spec:
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: prometheus
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"tempo","namespace":"monitoring"},"spec":{"ports":[{"name":"http","port":3200,"targetPort":3200},{"name":"grpc","port":4317,"targetPort":4317}],"selector":{"app":"tempo"}}}
+    creationTimestamp: "2026-06-13T20:45:44Z"
+    name: tempo
+    namespace: monitoring
+    resourceVersion: "3405488"
+    uid: 956678df-fe67-4a90-8663-4c65ca29faad
+  spec:
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 3200
+      protocol: TCP
+      targetPort: 3200
+    - name: grpc
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    selector:
+      app: tempo
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+kind: List
+metadata:
+  resourceVersion: ""

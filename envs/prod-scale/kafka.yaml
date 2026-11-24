@@ -1,0 +1,115 @@
+# PROD Kafka — 3-broker KRaft, RF=3 (HA before real traffic).
+# Combined broker+controller nodes (kafka-0/1/2). Bootstrap service name stays `kafka`
+# so apps keep KAFKA_BOOTSTRAP_SERVERS=kafka.messaging.svc.cluster.local:9092 (no app change).
+---
+apiVersion: v1
+kind: Service                    # headless — stable per-pod DNS (kafka-0.kafka-headless…)
+metadata:
+  name: kafka-headless
+  namespace: messaging
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: kafka
+  ports:
+  - name: broker
+    port: 9092
+  - name: controller
+    port: 9093
+---
+apiVersion: v1
+kind: Service                    # client bootstrap (unchanged name/port)
+metadata:
+  name: kafka
+  namespace: messaging
+spec:
+  selector:
+    app: kafka
+  ports:
+  - name: broker
+    port: 9092
+    targetPort: 9092
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: messaging
+spec:
+  serviceName: kafka-headless
+  replicas: 3
+  podManagementPolicy: Parallel  # all 3 start together so the controller quorum can form
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      securityContext:
+        fsGroup: 1000
+      affinity:
+        podAntiAffinity:         # one broker per node (a node loss keeps quorum)
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: kafka
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: kafka
+        image: apache/kafka:3.7.0
+        ports:
+        - { containerPort: 9092, name: broker }
+        - { containerPort: 9093, name: controller }
+        # Derive per-pod node id + advertised listener from the pod ordinal, then start.
+        command: ["/bin/bash","-c"]
+        args:
+        - |
+          set -e
+          ORD=${HOSTNAME##*-}
+          export KAFKA_NODE_ID=$((ORD + 1))
+          export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${HOSTNAME}.kafka-headless.messaging.svc.cluster.local:9092"
+          echo "starting node_id=$KAFKA_NODE_ID advertised=$KAFKA_ADVERTISED_LISTENERS"
+          exec /etc/kafka/docker/run
+        env:
+        - name: CLUSTER_ID
+          value: "Ed1TIHxWRLKd1SGeTotGtA"      # shared → all 3 format into one cluster
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "PLAINTEXT"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@kafka-0.kafka-headless.messaging.svc.cluster.local:9093,2@kafka-1.kafka-headless.messaging.svc.cluster.local:9093,3@kafka-2.kafka-headless.messaging.svc.cluster.local:9093"
+        # RF=3 durability defaults
+        - { name: KAFKA_DEFAULT_REPLICATION_FACTOR,               value: "3" }
+        - { name: KAFKA_MIN_INSYNC_REPLICAS,                      value: "2" }
+        - { name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR,         value: "3" }
+        - { name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR, value: "3" }
+        - { name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR,            value: "2" }
+        - { name: KAFKA_NUM_PARTITIONS,                           value: "3" }
+        - { name: KAFKA_AUTO_CREATE_TOPICS_ENABLE,               value: "true" }
+        # persisted log dir on a SUBDIR (DO ext4 volume root has lost+found)
+        - { name: KAFKA_LOG_DIRS,                                 value: "/var/lib/kafka/data/kafka-logs" }
+        resources:
+          requests: { cpu: "250m", memory: "768Mi" }
+          limits:   { cpu: "1",    memory: "1280Mi" }
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/kafka/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: do-block-storage
+      resources:
+        requests:
+          storage: 10Gi

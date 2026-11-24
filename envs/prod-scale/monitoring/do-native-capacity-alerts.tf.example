@@ -1,0 +1,111 @@
+###############################################################################
+# DO-NATIVE capacity alerts — the infra signals Prometheus CANNOT see.
+#
+# WHY THIS FILE EXISTS:
+#   The in-cluster Prometheus only scrapes app pods (Micrometer). It does NOT
+#   see managed-Postgres / managed-Redis HOST CPU, nor DOKS node CPU (no
+#   node-exporter). Those are the authoritative Tier 0 -> Tier 1 triggers, and
+#   they live in DigitalOcean's own monitoring. This wires DO alert policies
+#   for them via Terraform.
+#
+# HOW TO USE:
+#   1. Fill in the cluster IDs + notification email(s) below.
+#   2. Rename: drop the ".example" suffix -> do-native-capacity-alerts.tf
+#   3. Put it in a Terraform root that has the `digitalocean` provider
+#      configured (e.g. the prod env), then: terraform plan / apply.
+#
+# Alert-type strings are DO DBaaS/droplet metrics — verify against your
+# digitalocean provider version (`terraform providers`), they were added in
+# provider ~2.3x. Get cluster IDs with: doctl databases list
+###############################################################################
+
+variable "capacity_alert_emails" {
+  type        = list(string)
+  default     = ["ops@yescare.co.in"] # <-- set your on-call email(s)
+  description = "Recipients for DO capacity alerts"
+}
+
+variable "pg_cluster_id" {
+  type        = string
+  description = "Managed Postgres cluster UUID (doctl databases list)"
+}
+
+variable "redis_cluster_id" {
+  type        = string
+  description = "Managed Valkey/Redis cluster UUID"
+}
+
+variable "doks_worker_tag" {
+  type        = string
+  default     = "yescare"
+  description = "Tag applied to DOKS worker droplets — targets node CPU alert to all of them"
+}
+
+# ---- Postgres: THE #1 Tier 0 -> Tier 1 trigger ---------------------------
+resource "digitalocean_monitor_alert" "pg_cpu" {
+  alerts { email = var.capacity_alert_emails }
+  window      = "5m"
+  type        = "v1/dbaas/alerts/cpu_alerts"
+  entities    = [var.pg_cluster_id]
+  description = "[CAPACITY] Postgres CPU > 70% sustained — plan Tier 1 (bigger DB + standby)"
+  compare     = "GreaterThan"
+  value       = 70
+  enabled     = true
+}
+
+resource "digitalocean_monitor_alert" "pg_memory" {
+  alerts { email = var.capacity_alert_emails }
+  window      = "5m"
+  type        = "v1/dbaas/alerts/memory_utilization_alerts"
+  entities    = [var.pg_cluster_id]
+  description = "[CAPACITY] Postgres memory > 80% — scale DB tier"
+  compare     = "GreaterThan"
+  value       = 80
+  enabled     = true
+}
+
+resource "digitalocean_monitor_alert" "pg_disk" {
+  alerts { email = var.capacity_alert_emails }
+  window      = "5m"
+  type        = "v1/dbaas/alerts/disk_utilization_alerts"
+  entities    = [var.pg_cluster_id]
+  description = "[CAPACITY] Postgres disk > 80% — grow storage"
+  compare     = "GreaterThan"
+  value       = 80
+  enabled     = true
+}
+
+# ---- Redis / Valkey ------------------------------------------------------
+resource "digitalocean_monitor_alert" "redis_memory" {
+  alerts { email = var.capacity_alert_emails }
+  window      = "5m"
+  type        = "v1/dbaas/alerts/memory_utilization_alerts"
+  entities    = [var.redis_cluster_id]
+  description = "[CAPACITY] Redis memory > 80% — bump to 2GB tier (evictions risk sessions)"
+  compare     = "GreaterThan"
+  value       = 80
+  enabled     = true
+}
+
+# ---- DOKS worker nodes ---------------------------------------------------
+resource "digitalocean_monitor_alert" "node_cpu" {
+  alerts { email = var.capacity_alert_emails }
+  window      = "5m"
+  type        = "v1/insights/droplet/cpu"
+  tags        = [var.doks_worker_tag] # every worker droplet with this tag
+  description = "[CAPACITY] DOKS node CPU > 70% sustained — raise max_nodes or node size"
+  compare     = "GreaterThan"
+  value       = 70
+  enabled     = true
+}
+
+resource "digitalocean_monitor_alert" "node_memory" {
+  alerts { email = var.capacity_alert_emails }
+  window      = "5m"
+  type        = "v1/insights/droplet/memory_utilization_percent"
+  tags        = [var.doks_worker_tag]
+  description = "[CAPACITY] DOKS node memory > 80% sustained — add nodes / bigger nodes"
+  compare     = "GreaterThan"
+  value       = 80
+  enabled     = true
+}

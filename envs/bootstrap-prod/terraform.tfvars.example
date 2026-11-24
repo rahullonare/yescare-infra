@@ -1,0 +1,17 @@
+# YesCare Prod Bootstrap — terraform.tfvars
+#
+# Run ONCE per DO account. Creates the prod Project + state bucket.
+#
+# Sensitive values via env vars (never commit):
+#   export TF_VAR_do_token="dop_v1_..."
+#   export TF_VAR_spaces_access_id="DO..."
+#   export TF_VAR_spaces_secret_key="..."
+
+project_name        = "YesCare Production"
+project_description = "YesCare production infrastructure — DOKS, managed Postgres/Redis, Kafka, Spaces. Isolated from dev."
+project_purpose     = "Web Application"
+project_environment = "Production"
+
+# State bucket
+spaces_region     = "sgp1"
+state_bucket_name = "yescare-tfstate-prod"  # must be globally unique

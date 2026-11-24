@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars (gitignored). Do not commit secrets.
+
+region       = "blr1"
+env          = "dev"
+vpc_ip_range = "10.1.0.0/16"
+
+# Required: doctl kubernetes options versions --region blr1
+k8s_version = "1.31.2-do.0"
+
+# ~t3.medium equivalent for Helm / workloads
+k8s_node_size  = "s-2vcpu-4gb"
+k8s_node_count = 1
+
+# Same as AWS dev / DEV_PROD_ENDPOINTS_CONFIG.md
+db_username = "yescare_admin"
+db_name     = "yescaredev"
+db_size     = "db-s-1vcpu-1gb"
+
+# AWS SQS + S3 in ap-south-1 (same bucket & queue names as envs/dev)
+enable_aws_sqs_s3 = true
+aws_region        = "ap-south-1"
+queue_names       = ["events", "notifications", "jobs"]
+
+# DigitalOcean Spaces — only if enable_aws_sqs_s3 is false (S3 API via Spaces endpoint in app)
+enable_spaces = false
+# spaces_app_bucket_name  = "yescare-app-bucket-dev"
+# spaces_logs_bucket_name = "dev-yescare-logs-bucket"
+
+# export TF_VAR_do_token='dop_v1_...'
+# AWS credentials for hybrid: export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY or use aws configure / SSO

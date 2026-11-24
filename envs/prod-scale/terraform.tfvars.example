@@ -1,0 +1,88 @@
+# YesCare Prod-Scale — production-grade defaults for ~10K concurrent users
+# Estimated monthly: ~$350-450/mo (HA Postgres + 3 nodes + Kafka + managed Redis).
+#
+# Run digitalocean/envs/bootstrap-prod FIRST and paste project_id below.
+#
+# Sensitive values via env vars (never commit):
+#   export TF_VAR_do_token="dop_v1_..."
+#   export TF_VAR_spaces_access_id="DO..."
+#   export TF_VAR_spaces_secret_key="..."
+
+############################
+# Placement (everything in sgp1 — workloads + Spaces + state bucket)
+############################
+env          = "prod"
+region       = "sgp1"
+vpc_ip_range = "10.30.0.0/16"
+
+# REQUIRED — from `terraform output project_id` in bootstrap-prod
+project_id = "PASTE_FROM_BOOTSTRAP_OUTPUT"
+
+############################
+# Kubernetes — production-grade defaults
+############################
+# Run: doctl kubernetes options versions --region sgp1
+k8s_version          = "1.31.2-do.0"
+k8s_ha_control_plane = true           # ON by default for prod (+$40/mo)
+k8s_node_size        = "s-4vcpu-8gb"  # $48/node/mo
+k8s_min_nodes        = 3              # 3 = HA min for Kafka spread + Pod budget
+k8s_max_nodes        = 6              # autoscale ceiling
+k8s_auto_upgrade     = true
+
+############################
+# PostgreSQL — HA by default
+############################
+db_size       = "db-s-2vcpu-4gb"  # ~$100/mo HA (primary + standby)
+db_node_count = 2                  # HA on by default
+db_pg_version = "16"
+db_name       = "yescareprod"
+db_username   = "yescare_app"
+
+############################
+# Redis (managed) — 2GB tier
+############################
+redis_size            = "db-s-1vcpu-2gb"  # ~$30/mo
+redis_eviction_policy = "allkeys-lru"
+
+############################
+# Spaces (sgp1, co-located with workloads)
+############################
+enable_spaces        = true
+spaces_region        = "sgp1"
+spaces_bucket_suffix = "REPLACE_ME"   # e.g. "a1b2c3" — must be globally unique
+
+############################
+# Container Registry
+# Set true ONLY if no DO registry exists. If dev env already created
+# the "yescare" registry, leave false (registry is account-global).
+############################
+create_registry = false
+registry_name   = "yescare"
+registry_tier   = "basic"
+
+############################
+# Kafka — Bitnami KRaft, 3-node HA
+############################
+kafka_chart_version            = "31.5.0"
+kafka_replica_count            = 3
+kafka_storage_size             = "20Gi"
+kafka_resources_request_cpu    = "250m"
+kafka_resources_request_memory = "1Gi"
+kafka_resources_limit_memory   = "2Gi"
+kafka_topic_partitions         = 6
+kafka_topic_replication_factor = 3
+kafka_topics                   = ["prod-events", "prod-notifications", "prod-jobs", "prod-audit"]
+
+############################
+# Ingress + cert-manager + DNS
+############################
+ingress_nginx_version = "4.10.1"
+ingress_replica_count = 2
+
+cert_manager_version = "v1.15.3"
+letsencrypt_email    = ""   # e.g. "ops@yescare.in" — empty skips ClusterIssuer
+
+# After first apply, get the LB IP and refill these two:
+#   kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+domain_name      = ""   # e.g. "yescare.in"
+load_balancer_ip = ""

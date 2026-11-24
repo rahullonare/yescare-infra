@@ -1,0 +1,183 @@
+apiVersion: v1
+data:
+  alerts.yml: |
+    groups:
+    - name: yescare-pod-alerts
+      rules:
+      - alert: PodDown
+        expr: kube_pod_status_phase{namespace="prod", phase!="Running"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not running"
+          description: "Pod {{ $labels.pod }} in prod namespace has been down for more than 1 minute"
+
+      - alert: PodRestartingFrequently
+        expr: increase(kube_pod_container_status_restarts_total{namespace="prod"}[10m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted more than 3 times in 10 minutes"
+
+    - name: yescare-http-alerts
+      rules:
+      - alert: HighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{namespace="prod", status=~"5.."}[5m])) by (app) / sum(rate(http_server_requests_seconds_count{namespace="prod"}[5m])) by (app) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.app }}"
+          description: "{{ $labels.app }} has >5% error rate for 2 minutes"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{namespace="prod"}[5m])) by (le, app)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P99 latency on {{ $labels.app }}"
+          description: "{{ $labels.app }} P99 latency > 2s for 5 minutes"
+
+    - name: yescare-jvm-alerts
+      rules:
+      - alert: HighJVMHeapUsage
+        expr: sum(jvm_memory_used_bytes{namespace="prod", area="heap"}) by (app, pod) / sum(jvm_memory_max_bytes{namespace="prod", area="heap"}) by (app, pod) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap on {{ $labels.app }}/{{ $labels.pod }}"
+          description: "JVM heap usage > 85% for 5 minutes on {{ $labels.pod }}"
+
+      - alert: CriticalJVMHeapUsage
+        expr: sum(jvm_memory_used_bytes{namespace="prod", area="heap"}) by (app, pod) / sum(jvm_memory_max_bytes{namespace="prod", area="heap"}) by (app, pod) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL JVM heap on {{ $labels.app }}/{{ $labels.pod }}"
+          description: "JVM heap usage > 95% — OOM imminent on {{ $labels.pod }}"
+
+    - name: yescare-redis-alerts
+      rules:
+      - alert: RedisEvictions
+        expr: rate(redis_evicted_keys_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is evicting keys"
+          description: "Redis is evicting keys — sessions may be lost. Rate: {{ $value }}/s"
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory > 85%"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+    - name: yescare-kafka-alerts
+      rules:
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_group_lag > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag high on {{ $labels.topic }}"
+          description: "Consumer group {{ $labels.group }} lag > 1000 on topic {{ $labels.topic }}"
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumer_group_lag > 5000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL Kafka lag on {{ $labels.topic }}"
+          description: "Consumer group {{ $labels.group }} lag > 5000 — notifications severely delayed"
+
+    - name: yescare-websocket-alerts
+      rules:
+      - alert: WebSocketConnectionsDrop
+        expr: sum(sio_connections_active{namespace="prod"}) < 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active WebSocket connections"
+          description: "websocket-gateway has 0 active connections for 5 minutes"
+
+    # =====================================================================
+    # Tier 0 -> Tier 1 CAPACITY signals (sustained load = plan to scale up).
+    # Distinct from the acute "something is broken" alerts above: these are
+    # lower-threshold, long-"for" signals that tell you to move a tier.
+    # NOTE: Postgres/Redis HOST CPU and DOKS node CPU are NOT scraped by this
+    # Prometheus (managed DBs + no node-exporter). Those live in DO monitoring
+    # — see monitoring/do-native-capacity-alerts.tf.example.
+    # =====================================================================
+    - name: yescare-capacity-alerts
+      rules:
+      # DB connection pool = the #1 in-cluster proxy for "Postgres is the bottleneck".
+      - alert: DBPoolSaturationHigh
+        expr: max(hikaricp_connections_active{namespace="prod"}) by (app) / max(hikaricp_connections_max{namespace="prod"}) by (app) > 0.7
+        for: 15m
+        labels:
+          severity: warning
+          signal: capacity-tier1
+        annotations:
+          summary: "DB pool >70% sustained on {{ $labels.app }}"
+          description: "HikariCP pool >70% for 15m on {{ $labels.app }} — plan Tier 1 (bigger Postgres + standby)."
+      - alert: DBPoolSaturationCritical
+        expr: max(hikaricp_connections_active{namespace="prod"}) by (app) / max(hikaricp_connections_max{namespace="prod"}) by (app) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          signal: capacity-tier1
+        annotations:
+          summary: "DB pool >90% on {{ $labels.app }}"
+          description: "HikariCP pool >90% — connection exhaustion imminent. Scale Postgres/pool now."
+      - alert: DBPoolConnectionsQueued
+        expr: max(hikaricp_connections_pending{namespace="prod"}) by (app) > 0
+        for: 5m
+        labels:
+          severity: warning
+          signal: capacity-tier1
+        annotations:
+          summary: "Threads waiting for a DB connection on {{ $labels.app }}"
+          description: "hikaricp_connections_pending > 0 for 5m — pool too small or DB too slow. Tier 1 signal."
+      # Sustained request rate trending toward Tier 1 (~1K concurrent). TUNE the 100 RPS to your baseline.
+      - alert: SustainedRequestRateApproachingTier1
+        expr: sum(rate(http_server_requests_seconds_count{namespace="prod"}[5m])) > 100
+        for: 30m
+        labels:
+          severity: info
+          signal: capacity-tier1
+        annotations:
+          summary: "Sustained request rate > 100 RPS"
+          description: "Cluster-wide RPS >100 for 30m — trending toward Tier 1. Review the capacity dashboard."
+      # p95 SLO watch — softer than the acute HighLatency (p99>2s) alert.
+      - alert: P95LatencySLOWatch
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{namespace="prod"}[5m])) by (le, app)) > 0.5
+        for: 15m
+        labels:
+          severity: warning
+          signal: capacity-tier1
+        annotations:
+          summary: "P95 latency >500ms on {{ $labels.app }}"
+          description: "P95 > 0.5s for 15m on {{ $labels.app }} — capacity/perf pressure. Check DB pool + node headroom."
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"alerts.yml":"groups:\n- name: yescare-pod-alerts\n  rules:\n  - alert: PodDown\n    expr: kube_pod_status_phase{namespace=\"prod\", phase!=\"Running\"} == 1\n    for: 1m\n    labels:\n      severity: critical\n    annotations:\n      summary: \"Pod {{ $labels.pod }} is not running\"\n      description: \"Pod {{ $labels.pod }} in prod namespace has been down for more than 1 minute\"\n\n  - alert: PodRestartingFrequently\n    expr: increase(kube_pod_container_status_restarts_total{namespace=\"prod\"}[10m]) \u003e 3\n    for: 5m\n    labels:\n      severity: warning\n    annotations:\n      summary: \"Pod {{ $labels.pod }} restarting frequently\"\n      description: \"Pod {{ $labels.pod }} has restarted more than 3 times in 10 minutes\"\n\n- name: yescare-http-alerts\n  rules:\n  - alert: HighErrorRate\n    expr: sum(rate(http_server_requests_seconds_count{namespace=\"prod\", status=~\"5..\"}[5m])) by (app) / sum(rate(http_server_requests_seconds_count{namespace=\"prod\"}[5m])) by (app) \u003e 0.05\n    for: 2m\n    labels:\n      severity: critical\n    annotations:\n      summary: \"High 5xx error rate on {{ $labels.app }}\"\n      description: \"{{ $labels.app }} has \u003e5% error rate for 2 minutes\"\n\n  - alert: HighLatency\n    expr: histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{namespace=\"prod\"}[5m])) by (le, app)) \u003e 2\n    for: 5m\n    labels:\n      severity: warning\n    annotations:\n      summary: \"High P99 latency on {{ $labels.app }}\"\n      description: \"{{ $labels.app }} P99 latency \u003e 2s for 5 minutes\"\n\n- name: yescare-jvm-alerts\n  rules:\n  - alert: HighJVMHeapUsage\n    expr: sum(jvm_memory_used_bytes{namespace=\"prod\", area=\"heap\"}) by (app, pod) / sum(jvm_memory_max_bytes{namespace=\"prod\", area=\"heap\"}) by (app, pod) \u003e 0.85\n    for: 5m\n    labels:\n      severity: warning\n    annotations:\n      summary: \"High JVM heap on {{ $labels.app }}/{{ $labels.pod }}\"\n      description: \"JVM heap usage \u003e 85% for 5 minutes on {{ $labels.pod }}\"\n\n  - alert: CriticalJVMHeapUsage\n    expr: sum(jvm_memory_used_bytes{namespace=\"prod\", area=\"heap\"}) by (app, pod) / sum(jvm_memory_max_bytes{namespace=\"prod\", area=\"heap\"}) by (app, pod) \u003e 0.95\n    for: 2m\n    labels:\n      severity: critical\n    annotations:\n      summary: \"CRITICAL JVM heap on {{ $labels.app }}/{{ $labels.pod }}\"\n      description: \"JVM heap usage \u003e 95% — OOM imminent on {{ $labels.pod }}\"\n\n- name: yescare-redis-alerts\n  rules:\n  - alert: RedisEvictions\n    expr: rate(redis_evicted_keys_total[5m]) \u003e 0\n    for: 1m\n    labels:\n      severity: critical\n    annotations:\n      summary: \"Redis is evicting keys\"\n      description: \"Redis is evicting keys — sessions may be lost. Rate: {{ $value }}/s\"\n\n  - alert: RedisHighMemory\n    expr: redis_memory_used_bytes / redis_memory_max_bytes \u003e 0.85\n    for: 5m\n    labels:\n      severity: warning\n    annotations:\n      summary: \"Redis memory \u003e 85%\"\n      description: \"Redis memory usage is {{ $value | humanizePercentage }}\"\n\n- name: yescare-kafka-alerts\n  rules:\n  - alert: KafkaConsumerLagHigh\n    expr: kafka_consumer_group_lag \u003e 1000\n    for: 5m\n    labels:\n      severity: warning\n    annotations:\n      summary: \"Kafka consumer lag high on {{ $labels.topic }}\"\n      description: \"Consumer group {{ $labels.group }} lag \u003e 1000 on topic {{ $labels.topic }}\"\n\n  - alert: KafkaConsumerLagCritical\n    expr: kafka_consumer_group_lag \u003e 5000\n    for: 2m\n    labels:\n      severity: critical\n    annotations:\n      summary: \"CRITICAL Kafka lag on {{ $labels.topic }}\"\n      description: \"Consumer group {{ $labels.group }} lag \u003e 5000 — notifications severely delayed\"\n\n- name: yescare-websocket-alerts\n  rules:\n  - alert: WebSocketConnectionsDrop\n    expr: sum(sio_connections_active{namespace=\"prod\"}) \u003c 1\n    for: 5m\n    labels:\n      severity: warning\n    annotations:\n      summary: \"No active WebSocket connections\"\n      description: \"websocket-gateway has 0 active connections for 5 minutes\"\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"prometheus-alerts","namespace":"monitoring"}}
+  creationTimestamp: "2026-06-13T22:11:49Z"
+  name: prometheus-alerts
+  namespace: monitoring
+  resourceVersion: "3431365"
+  uid: c96e0013-6fbc-4970-99e5-9d2b6b14296f

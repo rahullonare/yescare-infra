@@ -1,0 +1,56 @@
+apiVersion: v1
+data:
+  loki.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9096
+
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+
+    query_range:
+      results_cache:
+        cache:
+          embedded_cache:
+            enabled: true
+            max_size_mb: 100
+
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+    limits_config:
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      ingestion_rate_mb: 16
+      ingestion_burst_size_mb: 32
+
+    ruler:
+      alertmanager_url: http://localhost:9093
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"loki.yaml":"auth_enabled: false\n\nserver:\n  http_listen_port: 3100\n  grpc_listen_port: 9096\n\ncommon:\n  instance_addr: 127.0.0.1\n  path_prefix: /loki\n  storage:\n    filesystem:\n      chunks_directory: /loki/chunks\n      rules_directory: /loki/rules\n  replication_factor: 1\n  ring:\n    kvstore:\n      store: inmemory\n\nquery_range:\n  results_cache:\n    cache:\n      embedded_cache:\n        enabled: true\n        max_size_mb: 100\n\nschema_config:\n  configs:\n    - from: 2020-10-24\n      store: tsdb\n      object_store: filesystem\n      schema: v13\n      index:\n        prefix: index_\n        period: 24h\n\nlimits_config:\n  reject_old_samples: true\n  reject_old_samples_max_age: 168h\n  ingestion_rate_mb: 16\n  ingestion_burst_size_mb: 32\n\nruler:\n  alertmanager_url: http://localhost:9093\n"},"kind":"ConfigMap","metadata":{"annotations":{},"creationTimestamp":"2026-05-24T03:03:33Z","name":"loki-config","namespace":"monitoring","resourceVersion":"10164406","uid":"07876590-8a67-4ebf-9899-6084e693f190"}}
+  creationTimestamp: "2026-06-13T20:27:30Z"
+  name: loki-config
+  namespace: monitoring
+  resourceVersion: "3399860"
+  uid: 065844c7-0d55-4a3f-9edf-0efc24da5111

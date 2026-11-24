@@ -1,0 +1,7 @@
+# LOCAL state — don't ever commit. Back it up out-of-band (1Password / sealed git).
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.lock.info
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars

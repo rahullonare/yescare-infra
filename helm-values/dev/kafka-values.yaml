@@ -1,0 +1,52 @@
+# Kafka — single-node KRaft dev (Bitnami). Topics provisioned via provisioning job.
+# If apply fails on your chart version, run: digitalocean/scripts/do-dev-create-kafka-topics.sh
+
+controller:
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 16Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+
+# One broker + one controller is typical for Bitnami Kafka KRaft dev clusters
+broker:
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 16Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+
+listeners:
+  client:
+    protocol: PLAINTEXT
+  controller:
+    protocol: PLAINTEXT
+  interbroker:
+    protocol: PLAINTEXT
+
+# Internal topics (__consumer_offsets, __transaction_state). On a single-node cluster these MUST be
+# RF=1 — Bitnami defaults to RF=3 / minISR=2, which a 1-broker cluster cannot satisfy, so the broker
+# loops on __consumer_offsets auto-creation forever and NO consumer group can ever join (producers
+# still work, consumers silently get nothing). Keep these <= broker count.
+extraConfig: |
+  offsets.topic.replication.factor=1
+  transaction.state.log.replication.factor=1
+  transaction.state.log.min.isr=1
+
+## Topic provisioning (requires chart support; Bitnami Kafka >= 26.x)
+provisioning:
+  enabled: true
+  numPartitions: 1
+  replicationFactor: 1
+  topics:
+    - name: dev-events
+    - name: dev-notifications
+    - name: dev-jobs

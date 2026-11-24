@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YesCare DO Prod Setup — Interactive Runbook</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c232c;
+    --border: #2c343d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #2f81f7;
+    --accent-2: #58a6ff;
+    --ok: #2ea043;
+    --warn: #d29922;
+    --bad: #f85149;
+    --code-bg: #0d1117;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --panel: #f6f8fa;
+      --panel-2: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #57606a;
+      --accent: #0969da;
+      --accent-2: #0550ae;
+      --ok: #1a7f37;
+      --warn: #9a6700;
+      --bad: #cf222e;
+      --code-bg: #f6f8fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text",
+                 Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+  }
+  .head-row { display: flex; align-items: center; gap: 18px; }
+  .title { font-weight: 700; font-size: 18px; flex: 1; }
+  .title small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+  .progress-wrap {
+    flex: 0 1 320px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--muted);
+  }
+  .progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--ok);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .btn {
+    appearance: none; border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text);
+    padding: 5px 11px; border-radius: 6px;
+    font-size: 12px; cursor: pointer;
+    font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent-2); }
+  .container { max-width: 1080px; margin: 0 auto; padding: 28px; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .meta .pill {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 3px 9px; border-radius: 999px;
+    color: var(--muted); font-size: 12px;
+  }
+  .meta .pill strong { color: var(--text); margin-right: 5px; }
+  .toc {
+    margin-bottom: 22px;
+    padding: 14px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .toc h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .toc ol { margin: 0; padding-left: 22px; }
+  .toc a { color: var(--accent-2); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  details.section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  details.section[open] { box-shadow: 0 1px 0 var(--border); }
+  details.section > summary {
+    cursor: pointer;
+    padding: 14px 18px;
+    font-weight: 600;
+    font-size: 16px;
+    display: flex; align-items: center; gap: 12px;
+    list-style: none;
+  }
+  details.section > summary::-webkit-details-marker { display: none; }
+  details.section > summary::before {
+    content: "▸"; color: var(--muted);
+    transition: transform 0.15s;
+    display: inline-block; width: 14px;
+  }
+  details.section[open] > summary::before { transform: rotate(90deg); }
+  .step-counter {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: var(--accent); color: white;
+    border-radius: 50%;
+    font-size: 11px; font-weight: 700;
+  }
+  details.section.done .step-counter { background: var(--ok); }
+  .time-est {
+    margin-left: auto;
+    color: var(--muted); font-size: 12px;
+    background: var(--panel-2);
+    padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .section-body { padding: 4px 18px 18px 18px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  ul.tasks { list-style: none; padding-left: 0; }
+  ul.tasks li {
+    padding: 6px 0;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  ul.tasks input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  ul.tasks label { flex: 1; cursor: pointer; }
+  ul.tasks li.done label { color: var(--muted); text-decoration: line-through; }
+  .code-block {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 10px 0;
+    overflow: hidden;
+  }
+  .code-block pre {
+    margin: 0;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .code-copy {
+    position: absolute; top: 6px; right: 6px;
+    appearance: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 9px; border-radius: 5px;
+    font-size: 11px; cursor: pointer;
+    font-family: inherit;
+    opacity: 0.8;
+  }
+  .code-copy:hover { color: var(--accent-2); border-color: var(--accent); }
+  .code-copy.copied { background: var(--ok); color: white; border-color: var(--ok); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 14px;
+  }
+  th, td {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+  th { background: var(--panel-2); }
+  .note, .warn, .tip {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    border-left: 4px solid;
+    font-size: 14px;
+  }
+  .note { background: rgba(47, 129, 247, 0.08); border-color: var(--accent); }
+  .warn { background: rgba(210, 153, 34, 0.10); border-color: var(--warn); }
+  .tip  { background: rgba(46, 160, 67, 0.08); border-color: var(--ok); }
+  .note strong, .warn strong, .tip strong { display: inline-block; margin-right: 4px; }
+  code.inline {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+  }
+  a { color: var(--accent-2); }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
+  .footer {
+    margin-top: 30px; padding: 16px;
+    color: var(--muted); font-size: 13px;
+    text-align: center;
+  }
+  @media print {
+    header, .progress-wrap, .btn, .code-copy { display: none !important; }
+    details.section { break-inside: avoid; border: none; }
+    details.section > summary::before { display: none; }
+    details.section { box-shadow: none; }
+    details.section[open] { page-break-inside: avoid; }
+    details.section:not([open]) > .section-body { display: block !important; }
+    details.section > summary { background: #f0f0f0; padding: 8px; }
+    body { background: white; color: black; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <div class="title">YesCare DigitalOcean Prod Setup <small>10K concurrent users · sgp1 · isolated project</small></div>
+    <div class="progress-wrap">
+      <span id="progress-text">0 / 0</span>
+      <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+    </div>
+    <button class="btn" onclick="resetProgress()">Reset</button>
+    <button class="btn" onclick="window.print()">Print / PDF</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="meta">
+    <span class="pill"><strong>Region:</strong> sgp1 (Singapore)</span>
+    <span class="pill"><strong>Project:</strong> YesCare Production (isolated)</span>
+    <span class="pill"><strong>Workloads:</strong> DOKS + Managed Postgres + Managed Redis</span>
+    <span class="pill"><strong>Streaming:</strong> Kafka (KRaft, 3-broker HA)</span>
+    <span class="pill"><strong>State:</strong> Spaces bucket (in prod project)</span>
+    <span class="pill"><strong>Target:</strong> ~10K concurrent users</span>
+    <span class="pill"><strong>Est. cost:</strong> ~$350–450/mo</span>
+    <span class="pill"><strong>Total time:</strong> ~2.5 hours first run</span>
+  </div>
+
+  <div class="toc">
+    <h3>Sections</h3>
+    <ol>
+      <li><a href="#s-architecture">Architecture overview &amp; budget</a></li>
+      <li><a href="#s-prereqs">Prerequisites (~20 min)</a></li>
+      <li><a href="#s-bootstrap">Bootstrap: Project + state bucket (~10 min)</a></li>
+      <li><a href="#s-tfvars">Wire prod-scale tfvars (~5 min)</a></li>
+      <li><a href="#s-pass1">Apply Pass 1: cluster + managed services (~25 min)</a></li>
+      <li><a href="#s-kubeconfig">Export kubeconfig (~2 min)</a></li>
+      <li><a href="#s-pass2">Apply Pass 2: Helm releases (~15 min)</a></li>
+      <li><a href="#s-verify">Verify Kafka, Postgres, Redis (~10 min)</a></li>
+      <li><a href="#s-dns">DNS + TLS cutover (~20 min)</a></li>
+      <li><a href="#s-cd">Configure CD pipeline for prod (~25 min)</a></li>
+      <li><a href="#s-app-config">App connection strings &amp; secrets (~15 min)</a></li>
+      <li><a href="#s-golive">Go-live checklist</a></li>
+      <li><a href="#s-rollback">Disaster recovery &amp; rollback</a></li>
+    </ol>
+  </div>
+
+  <!-- ============================== 1 ============================== -->
+  <details class="section" id="s-architecture" open>
+    <summary>
+      <span class="step-counter">1</span>
+      Architecture overview &amp; budget
+      <span class="time-est">read · 5 min</span>
+    </summary>
+    <div class="section-body">
+      <p>This stack lands inside a dedicated DO Project (<strong>YesCare Production</strong>), separate from dev. Even the Terraform state Space lives in the same project.</p>
+      <table>
+        <thead><tr><th>Layer</th><th>Component</th><th>Sizing</th><th>~$/mo</th></tr></thead>
+        <tbody>
+          <tr><td>Compute</td><td>DOKS autoscale, HA control plane</td><td>3–6 × s-4vcpu-8gb</td><td>184–328</td></tr>
+          <tr><td>Database</td><td>Managed Postgres 16 HA</td><td>db-s-2vcpu-4gb × 2 nodes</td><td>100</td></tr>
+          <tr><td>Cache</td><td>Managed Redis 7</td><td>db-s-1vcpu-2gb, allkeys-lru</td><td>30</td></tr>
+          <tr><td>Streaming</td><td>Kafka (Bitnami KRaft, anti-affinity)</td><td>3 nodes, 20Gi PVC each</td><td>~6 (PVCs)</td></tr>
+          <tr><td>Object storage</td><td>Spaces app + logs</td><td>versioning on, 90d log retention</td><td>10–25</td></tr>
+          <tr><td>Registry</td><td>DOCR (shared yescare)</td><td>basic tier</td><td>5</td></tr>
+          <tr><td>Ingress</td><td>ingress-nginx + DO LB</td><td>2 replicas, anti-affinity</td><td>12</td></tr>
+          <tr><td>TLS</td><td>cert-manager + Let's Encrypt</td><td>ClusterIssuer letsencrypt-prod</td><td>0</td></tr>
+          <tr><td>DNS</td><td>DO Domain</td><td>apex + www + api</td><td>0</td></tr>
+          <tr><td colspan="3"><strong>Subtotal</strong></td><td><strong>~347–506</strong></td></tr>
+          <tr><td colspan="3">+15% buffer (monitoring, snapshots, extra storage)</td><td>~50–75</td></tr>
+          <tr><td colspan="3"><strong>Production-grade total</strong></td><td><strong>~$400–580/mo</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="tip"><strong>Tip:</strong> Set DO billing alerts at 50% / 80% / 100% of $580 before applying — Settings → Billing → Alerts.</div>
+    </div>
+  </details>
+
+  <!-- ============================== 2 ============================== -->
+  <details class="section" id="s-prereqs">
+    <summary>
+      <span class="step-counter">2</span>
+      Prerequisites
+      <span class="time-est">~20 min</span>
+    </summary>
+    <div class="section-body">
+      <ul class="tasks">
+        <li><input type="checkbox" id="p-cli"><label for="p-cli">Install CLIs: <code class="inline">terraform &gt;= 1.5</code>, <code class="inline">doctl</code>, <code class="inline">kubectl</code>, <code class="inline">helm</code></label></li>
+        <li><input type="checkbox" id="p-token"><label for="p-token">Create a <strong>prod-only</strong> DO API token (write scope). DO Console → API → Tokens → Generate. Name it <code class="inline">yescare-terraform-prod</code>.</label></li>
+        <li><input type="checkbox" id="p-spaces"><label for="p-spaces">Create Spaces access key. DO Console → API → Spaces Keys. Save both Access Key ID and Secret Key.</label></li>
+        <li><input type="checkbox" id="p-doctl"><label for="p-doctl">Authenticate doctl with the prod token.</label></li>
+        <li><input type="checkbox" id="p-clone"><label for="p-clone">Clone the infra repo and switch to <code class="inline">main</code>.</label></li>
+        <li><input type="checkbox" id="p-env"><label for="p-env">Export sensitive env vars (this terminal session only).</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Install CLIs (macOS)
+brew install terraform doctl kubectl helm</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Authenticate doctl
+doctl auth init -t dop_v1_REPLACE_ME
+doctl account get</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Export sensitive vars
+export TF_VAR_do_token="dop_v1_REPLACE_ME"
+export TF_VAR_spaces_access_id="DO00REPLACEME"
+export TF_VAR_spaces_secret_key="REPLACEME"</pre>
+      </div>
+
+      <div class="warn"><strong>Never</strong> commit these to git. Add them to your shell's secret-loader (1Password CLI, direnv with .envrc-private, etc.) so they survive new sessions but stay out of history.</div>
+    </div>
+  </details>
+
+  <!-- ============================== 3 ============================== -->
+  <details class="section" id="s-bootstrap">
+    <summary>
+      <span class="step-counter">3</span>
+      Bootstrap: Project + state bucket
+      <span class="time-est">~10 min</span>
+    </summary>
+    <div class="section-body">
+      <p>Run this <strong>once per DO account</strong>. Creates the <code class="inline">YesCare Production</code> Project and the Spaces bucket that holds prod Terraform state — and attaches that bucket to the project.</p>
+
+      <ul class="tasks">
+        <li><input type="checkbox" id="b-cd"><label for="b-cd">cd into bootstrap dir</label></li>
+        <li><input type="checkbox" id="b-tfvars"><label for="b-tfvars">Copy tfvars example and edit if needed</label></li>
+        <li><input type="checkbox" id="b-init"><label for="b-init">terraform init (local state)</label></li>
+        <li><input type="checkbox" id="b-apply"><label for="b-apply">terraform apply — review the 3 resources, type yes</label></li>
+        <li><input type="checkbox" id="b-save"><label for="b-save">Save the <code class="inline">project_id</code> output — you'll paste it into prod-scale</label></li>
+        <li><input type="checkbox" id="b-backup"><label for="b-backup">Back up <code class="inline">terraform.tfstate</code> to 1Password (it stays local; losing it means manual recreate)</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>cd digitalocean/envs/bootstrap-prod
+
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars only if you want a different project name
+# or state bucket name. Defaults work for first run.
+
+terraform init -input=false
+terraform apply</pre>
+      </div>
+
+      <div class="tip">Expected resources: <code class="inline">digitalocean_project.prod</code>, <code class="inline">digitalocean_spaces_bucket.tf_state</code>, <code class="inline">digitalocean_project_resources.tf_state_bucket</code>. The apply prints <code class="inline">project_id</code> and <code class="inline">state_bucket_name</code> — copy both.</div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Save outputs for the next section
+terraform output -raw project_id
+terraform output -raw state_bucket_name</pre>
+      </div>
+
+      <div class="warn"><strong>State safety:</strong> <code class="inline">bootstrap-prod/terraform.tfstate</code> is local and gitignored. Back it up to 1Password (or your team vault). Losing it means manually re-importing the Project + bucket later.</div>
+    </div>
+  </details>
+
+  <!-- ============================== 4 ============================== -->
+  <details class="section" id="s-tfvars">
+    <summary>
+      <span class="step-counter">4</span>
+      Wire prod-scale tfvars
+      <span class="time-est">~5 min</span>
+    </summary>
+    <div class="section-body">
+      <ul class="tasks">
+        <li><input type="checkbox" id="t-cd"><label for="t-cd">cd into prod-scale dir</label></li>
+        <li><input type="checkbox" id="t-copy"><label for="t-copy">Copy example tfvars</label></li>
+        <li><input type="checkbox" id="t-project"><label for="t-project">Paste <code class="inline">project_id</code> from bootstrap output</label></li>
+        <li><input type="checkbox" id="t-suffix"><label for="t-suffix">Set a unique <code class="inline">spaces_bucket_suffix</code> (e.g. <code class="inline">openssl rand -hex 3</code>)</label></li>
+        <li><input type="checkbox" id="t-k8sver"><label for="t-k8sver">Set <code class="inline">k8s_version</code> from doctl</label></li>
+        <li><input type="checkbox" id="t-email"><label for="t-email">Set <code class="inline">letsencrypt_email</code> (used later for TLS)</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>cd ../prod-scale
+cp terraform.tfvars.example terraform.tfvars
+
+# Get current K8s versions in sgp1
+doctl kubernetes options versions --region sgp1 | head -5
+
+# Generate a unique Spaces suffix
+openssl rand -hex 3</pre>
+      </div>
+
+      <p>Open <code class="inline">terraform.tfvars</code> and fill in the four marked lines:</p>
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>project_id           = "PASTE_FROM_BOOTSTRAP_OUTPUT"
+spaces_bucket_suffix = "abc123"            # from openssl rand -hex 3
+k8s_version          = "1.31.2-do.0"       # from doctl
+letsencrypt_email    = "ops@yescare.in"    # ACME contact</pre>
+      </div>
+
+      <div class="note">Leave <code class="inline">domain_name</code> and <code class="inline">load_balancer_ip</code> empty for now — they get filled after the LB is provisioned in section 9.</div>
+    </div>
+  </details>
+
+  <!-- ============================== 5 ============================== -->
+  <details class="section" id="s-pass1">
+    <summary>
+      <span class="step-counter">5</span>
+      Apply Pass 1: cluster + managed services
+      <span class="time-est">~25 min</span>
+    </summary>
+    <div class="section-body">
+      <p>First pass creates the DOKS cluster and the managed databases. Helm releases are skipped because the kubeconfig doesn't exist yet.</p>
+
+      <ul class="tasks">
+        <li><input type="checkbox" id="p1-init"><label for="p1-init">terraform init with Spaces backend</label></li>
+        <li><input type="checkbox" id="p1-targeted"><label for="p1-targeted">Targeted apply: VPC + DOKS + Postgres + Redis + Spaces + Registry + Firewall</label></li>
+        <li><input type="checkbox" id="p1-wait"><label for="p1-wait">Wait for cluster to be Running (~5-8 min)</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>terraform init \
+  -backend-config="access_key=$TF_VAR_spaces_access_id" \
+  -backend-config="secret_key=$TF_VAR_spaces_secret_key"</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>terraform apply \
+  -target=module.vpc \
+  -target=module.kubernetes \
+  -target=module.postgres \
+  -target=module.redis \
+  -target=module.spaces \
+  -target=module.firewall \
+  -target=digitalocean_project_resources.prod_scale</pre>
+      </div>
+
+      <div class="warn"><strong>Time:</strong> Postgres HA takes ~5 min, DOKS ~5-8 min, Redis ~3 min. Run all in parallel above — Terraform handles the dependency graph.</div>
+
+      <p>Sanity check:</p>
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>doctl kubernetes cluster list
+doctl databases list</pre>
+      </div>
+    </div>
+  </details>
+
+  <!-- ============================== 6 ============================== -->
+  <details class="section" id="s-kubeconfig">
+    <summary>
+      <span class="step-counter">6</span>
+      Export kubeconfig
+      <span class="time-est">~2 min</span>
+    </summary>
+    <div class="section-body">
+      <ul class="tasks">
+        <li><input type="checkbox" id="k-export"><label for="k-export">Export kubeconfig from terraform output</label></li>
+        <li><input type="checkbox" id="k-set"><label for="k-set">Point KUBECONFIG at it</label></li>
+        <li><input type="checkbox" id="k-test"><label for="k-test">Verify with <code class="inline">kubectl get nodes</code></label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>terraform output -raw kubeconfig > kubeconfig-prod-scale.yaml
+chmod 600 kubeconfig-prod-scale.yaml
+export KUBECONFIG="$PWD/kubeconfig-prod-scale.yaml"
+
+kubectl get nodes -o wide</pre>
+      </div>
+
+      <div class="tip">Expected: 3 nodes Ready, region <code class="inline">sgp1</code>, size <code class="inline">s-4vcpu-8gb</code>.</div>
+    </div>
+  </details>
+
+  <!-- ============================== 7 ============================== -->
+  <details class="section" id="s-pass2">
+    <summary>
+      <span class="step-counter">7</span>
+      Apply Pass 2: Helm releases
+      <span class="time-est">~15 min</span>
+    </summary>
+    <div class="section-body">
+      <p>Second pass installs ingress-nginx (triggers DO LB), cert-manager, Kafka, and the Let's Encrypt ClusterIssuer.</p>
+
+      <ul class="tasks">
+        <li><input type="checkbox" id="p2-apply"><label for="p2-apply">Apply with kubeconfig path set</label></li>
+        <li><input type="checkbox" id="p2-watch"><label for="p2-watch">Watch pods come up</label></li>
+        <li><input type="checkbox" id="p2-lbip"><label for="p2-lbip">Grab the LB IP — needed for DNS</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>terraform apply -var="kubeconfig_path=kubeconfig-prod-scale.yaml"</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>kubectl get pods -A -w
+# Press Ctrl-C once you see:
+#  - ingress-nginx-controller   Running
+#  - cert-manager-*              Running
+#  - kafka-controller-0/1/2      Running</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>kubectl get svc ingress-nginx-controller -n ingress-nginx \
+  -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+echo</pre>
+      </div>
+    </div>
+  </details>
+
+  <!-- ============================== 8 ============================== -->
+  <details class="section" id="s-verify">
+    <summary>
+      <span class="step-counter">8</span>
+      Verify Kafka, Postgres, Redis
+      <span class="time-est">~10 min</span>
+    </summary>
+    <div class="section-body">
+      <ul class="tasks">
+        <li><input type="checkbox" id="v-kafka"><label for="v-kafka">Kafka: 3 controllers ready, topics created</label></li>
+        <li><input type="checkbox" id="v-pg"><label for="v-pg">Postgres: HA primary+standby, reachable from pod</label></li>
+        <li><input type="checkbox" id="v-redis"><label for="v-redis">Redis: reachable from pod, eviction policy set</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Kafka
+kubectl get pods -n messaging
+kubectl exec -it kafka-controller-0 -n messaging -- \
+  kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+# Expected: prod-events, prod-notifications, prod-jobs, prod-audit</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Postgres
+DB_HOST=$(terraform output -raw database_host)
+DB_USER=$(terraform output -raw database_user)
+DB_NAME=$(terraform output -raw database_name)
+DB_PASS=$(terraform output -raw database_password)
+kubectl run -it pg-test --image=postgres:16 --rm --restart=Never -- \
+  psql "postgresql://$DB_USER:$DB_PASS@$DB_HOST:25060/$DB_NAME?sslmode=require" -c 'SELECT 1'</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Redis
+R_HOST=$(terraform output -raw redis_host)
+R_PASS=$(terraform output -raw redis_password)
+kubectl run -it redis-test --image=redis:7 --rm --restart=Never -- \
+  redis-cli -h $R_HOST -p 25061 --tls -a $R_PASS PING</pre>
+      </div>
+    </div>
+  </details>
+
+  <!-- ============================== 9 ============================== -->
+  <details class="section" id="s-dns">
+    <summary>
+      <span class="step-counter">9</span>
+      DNS + TLS cutover
+      <span class="time-est">~20 min</span>
+    </summary>
+    <div class="section-body">
+      <ul class="tasks">
+        <li><input type="checkbox" id="d-tfvars"><label for="d-tfvars">Put LB IP + domain into tfvars</label></li>
+        <li><input type="checkbox" id="d-apply"><label for="d-apply">Re-apply — creates DO Domain + apex/www/api A records + LE cert</label></li>
+        <li><input type="checkbox" id="d-nameservers"><label for="d-nameservers">At your registrar, point nameservers to DO: ns1.digitalocean.com, ns2.digitalocean.com, ns3.digitalocean.com</label></li>
+        <li><input type="checkbox" id="d-wait"><label for="d-wait">Wait for DNS propagation (5-30 min)</label></li>
+        <li><input type="checkbox" id="d-cert"><label for="d-cert">Verify TLS cert issued</label></li>
+      </ul>
+
+      <p>Edit <code class="inline">terraform.tfvars</code>:</p>
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>domain_name      = "yescare.in"
+load_balancer_ip = "PASTE_LB_IP_FROM_SECTION_7"</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>terraform apply -var="kubeconfig_path=kubeconfig-prod-scale.yaml"
+
+# Verify DNS
+dig +short yescare.in @ns1.digitalocean.com
+
+# Verify TLS once propagated
+curl -I https://yescare.in</pre>
+      </div>
+
+      <div class="warn">If your registrar can't delegate the whole zone to DO, use Cloudflare-fronting instead: orange-cloud the DNS records pointing to the DO LB IP, and skip the DO Domain module (leave <code class="inline">domain_name</code> empty in tfvars).</div>
+    </div>
+  </details>
+
+  <!-- ============================== 10 ============================== -->
+  <details class="section" id="s-cd">
+    <summary>
+      <span class="step-counter">10</span>
+      Configure CD pipeline for prod
+      <span class="time-est">~25 min</span>
+    </summary>
+    <div class="section-body">
+      <p>The workflow file is already in the repo: <code class="inline">.github/workflows/terraform-do-prod-scale.yml</code>. It mirrors the existing dev pipeline pattern: plan on PR, apply on push to <code class="inline">main</code> with a manual approval gate.</p>
+
+      <ul class="tasks">
+        <li><input type="checkbox" id="cd-secrets"><label for="cd-secrets">Add GitHub repo Secrets</label></li>
+        <li><input type="checkbox" id="cd-env"><label for="cd-env">Create <code class="inline">do-production</code> GitHub Environment with required reviewers</label></li>
+        <li><input type="checkbox" id="cd-restrict"><label for="cd-restrict">Restrict the environment to <code class="inline">main</code> branch only</label></li>
+        <li><input type="checkbox" id="cd-test"><label for="cd-test">Open a no-op PR to confirm Plan runs</label></li>
+        <li><input type="checkbox" id="cd-merge"><label for="cd-merge">Merge to trigger Apply (requires approval)</label></li>
+      </ul>
+
+      <p>GitHub repo → Settings → Secrets and variables → Actions → New repository secret. Add these 5:</p>
+      <table>
+        <thead><tr><th>Secret name</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><code class="inline">DO_TOKEN_PROD</code></td><td>DO API token (prod-only, write scope)</td></tr>
+          <tr><td><code class="inline">DO_SPACES_ACCESS_ID</code></td><td>Spaces access key</td></tr>
+          <tr><td><code class="inline">DO_SPACES_SECRET_KEY</code></td><td>Spaces secret key</td></tr>
+          <tr><td><code class="inline">DO_PROJECT_ID_PROD</code></td><td><code class="inline">project_id</code> output from bootstrap-prod</td></tr>
+          <tr><td><code class="inline">LETSENCRYPT_EMAIL</code></td><td>ops@yescare.in (optional)</td></tr>
+        </tbody>
+      </table>
+
+      <p>GitHub repo → Settings → Environments → New environment → name <code class="inline">do-production</code>:</p>
+      <ul>
+        <li>Required reviewers: at least 1 person from the ops team</li>
+        <li>Deployment branches and tags: <strong>Selected branches and tags → main</strong></li>
+        <li>Wait timer: optional 5-minute buffer to allow cancel</li>
+      </ul>
+
+      <div class="tip">After secrets + environment are set, every PR that touches <code class="inline">digitalocean/envs/prod-scale/**</code> posts a Terraform plan as a comment. Merges to <code class="inline">main</code> wait for reviewer approval before applying.</div>
+
+      <div class="warn"><strong>kubeconfig handling:</strong> The workflow uploads <code class="inline">kubeconfig-prod-scale.yaml</code> as an artifact. Set artifact retention to 7 days max and use GitHub Environment Secrets for runtime app deployment workflows — never check kubeconfig into git.</div>
+    </div>
+  </details>
+
+  <!-- ============================== 11 ============================== -->
+  <details class="section" id="s-app-config">
+    <summary>
+      <span class="step-counter">11</span>
+      App connection strings &amp; secrets
+      <span class="time-est">~15 min</span>
+    </summary>
+    <div class="section-body">
+      <p>Pull connection details from terraform output and put them into a Kubernetes Secret your app reads.</p>
+
+      <ul class="tasks">
+        <li><input type="checkbox" id="a-pull"><label for="a-pull">Pull all outputs</label></li>
+        <li><input type="checkbox" id="a-secret"><label for="a-secret">Create app secret in <code class="inline">default</code> (or app) namespace</label></li>
+        <li><input type="checkbox" id="a-test"><label for="a-test">Deploy app, confirm DB/Kafka/Redis connectivity</label></li>
+      </ul>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>cd digitalocean/envs/prod-scale
+
+# Postgres
+terraform output -raw database_host
+terraform output -raw database_user
+terraform output -raw database_password
+terraform output -raw database_name
+
+# Redis
+terraform output -raw redis_host
+terraform output -raw redis_password
+
+# Kafka
+terraform output kafka_bootstrap_servers
+
+# Spaces
+terraform output spaces_endpoint
+terraform output spaces_app_bucket</pre>
+      </div>
+
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>kubectl create namespace app --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl create secret generic yescare-prod-config \
+  --namespace=app \
+  --from-literal=DB_HOST="$(terraform output -raw database_host)" \
+  --from-literal=DB_USER="$(terraform output -raw database_user)" \
+  --from-literal=DB_PASS="$(terraform output -raw database_password)" \
+  --from-literal=DB_NAME="$(terraform output -raw database_name)" \
+  --from-literal=REDIS_HOST="$(terraform output -raw redis_host)" \
+  --from-literal=REDIS_PASS="$(terraform output -raw redis_password)" \
+  --from-literal=KAFKA_BOOTSTRAP="kafka.messaging.svc.cluster.local:9092" \
+  --from-literal=S3_ENDPOINT="$(terraform output -raw spaces_endpoint)" \
+  --from-literal=S3_BUCKET="$(terraform output -raw spaces_app_bucket)"</pre>
+      </div>
+
+      <p>Spring Boot mapping cheat-sheet:</p>
+      <table>
+        <thead><tr><th>App property</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td><code class="inline">spring.datasource.url</code></td><td><code class="inline">jdbc:postgresql://$DB_HOST:25060/$DB_NAME?sslmode=require</code></td></tr>
+          <tr><td><code class="inline">spring.data.redis.host</code></td><td><code class="inline">$REDIS_HOST</code> (TLS port 25061)</td></tr>
+          <tr><td><code class="inline">spring.kafka.bootstrap-servers</code></td><td><code class="inline">kafka.messaging.svc.cluster.local:9092</code></td></tr>
+          <tr><td><code class="inline">spring.cloud.aws.s3.endpoint</code></td><td><code class="inline">$S3_ENDPOINT</code></td></tr>
+          <tr><td><code class="inline">spring.cloud.aws.s3.bucket</code></td><td><code class="inline">$S3_BUCKET</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- ============================== 12 ============================== -->
+  <details class="section" id="s-golive">
+    <summary>
+      <span class="step-counter">12</span>
+      Go-live checklist
+      <span class="time-est">final review</span>
+    </summary>
+    <div class="section-body">
+      <ul class="tasks">
+        <li><input type="checkbox" id="g-ha"><label for="g-ha">HA Postgres confirmed: <code class="inline">db_node_count = 2</code></label></li>
+        <li><input type="checkbox" id="g-cp"><label for="g-cp">HA DOKS control plane on: <code class="inline">k8s_ha_control_plane = true</code></label></li>
+        <li><input type="checkbox" id="g-pw"><label for="g-pw">Rotate Postgres + Redis passwords in DO console after initial setup, re-run apply</label></li>
+        <li><input type="checkbox" id="g-cert"><label for="g-cert">TLS cert issued and serves on the domain (<code class="inline">curl -I https://yescare.in</code> returns 200/301)</label></li>
+        <li><input type="checkbox" id="g-fw"><label for="g-fw">Cloud Firewall reviewed — restrict to Cloudflare IPs if fronting</label></li>
+        <li><input type="checkbox" id="g-alerts"><label for="g-alerts">DO billing alerts at 50/80/100% of $580/mo</label></li>
+        <li><input type="checkbox" id="g-spaces"><label for="g-spaces">Spaces buckets confirmed private ACL</label></li>
+        <li><input type="checkbox" id="g-bootstrap"><label for="g-bootstrap"><code class="inline">bootstrap-prod/terraform.tfstate</code> backed up to 1Password</label></li>
+        <li><input type="checkbox" id="g-cd"><label for="g-cd">CD pipeline tested with a no-op PR + approved merge</label></li>
+        <li><input type="checkbox" id="g-runbook"><label for="g-runbook">On-call runbook updated with prod kubeconfig + Project URL</label></li>
+        <li><input type="checkbox" id="g-monitor"><label for="g-monitor">Monitoring wired up — at minimum DO Monitoring alerts on CPU/memory/disk</label></li>
+        <li><input type="checkbox" id="g-backup"><label for="g-backup">Postgres backup retention reviewed (DO default 7 days, increase to 30+ in console)</label></li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- ============================== 13 ============================== -->
+  <details class="section" id="s-rollback">
+    <summary>
+      <span class="step-counter">13</span>
+      Disaster recovery &amp; rollback
+      <span class="time-est">reference</span>
+    </summary>
+    <div class="section-body">
+      <p><strong>Bad terraform apply:</strong> Spaces backend has versioning on. Roll back via:</p>
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># List versions
+s3cmd --host=sgp1.digitaloceanspaces.com --host-bucket="%(bucket)s.sgp1.digitaloceanspaces.com" \
+  --access_key=$TF_VAR_spaces_access_id --secret_key=$TF_VAR_spaces_secret_key \
+  ls s3://yescare-tfstate-prod/envs/prod-scale/
+
+# Restore a specific version
+# (use DO console UI — easier than CLI for one-off restores)</pre>
+      </div>
+
+      <p><strong>Helm rollback (Kafka, ingress, cert-manager):</strong></p>
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre>helm history kafka -n messaging
+helm rollback kafka 1 -n messaging</pre>
+      </div>
+
+      <p><strong>Postgres point-in-time restore:</strong> DO Console → Databases → your cluster → Backups → Restore. Default retention 7 days; extend to 30+ for production.</p>
+
+      <p><strong>Total infra destroy (use with extreme care):</strong></p>
+      <div class="code-block">
+        <button class="code-copy" data-copy-target="next">Copy</button>
+<pre># Only after taking final snapshots
+terraform destroy -var="kubeconfig_path=kubeconfig-prod-scale.yaml"
+# Then cd ../bootstrap-prod && terraform destroy</pre>
+      </div>
+
+      <div class="warn"><strong>Order matters:</strong> always destroy prod-scale before bootstrap-prod. Otherwise the state bucket disappears while you still need it.</div>
+    </div>
+  </details>
+
+  <div class="footer">
+    Generated for YesCare · DigitalOcean prod-scale env · sgp1 ·
+    <a href="README.md">README.md</a> ·
+    <a href="main.tf">main.tf</a> ·
+    <a href="../bootstrap-prod/main.tf">bootstrap-prod/main.tf</a>
+  </div>
+
+</div>
+
+<script>
+  const STORAGE_KEY = "yescare-prod-setup-v1";
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+    catch { return {}; }
+  }
+  function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+  // Restore checkbox state + update progress
+  const checkboxes = Array.from(document.querySelectorAll('ul.tasks input[type="checkbox"]'));
+  const state = loadState();
+  checkboxes.forEach(cb => {
+    if (state[cb.id]) {
+      cb.checked = true;
+      cb.closest('li').classList.add('done');
+    }
+    cb.addEventListener('change', () => {
+      state[cb.id] = cb.checked;
+      cb.closest('li').classList.toggle('done', cb.checked);
+      saveState(state);
+      updateProgress();
+    });
+  });
+
+  // Restore open/closed sections
+  const sections = Array.from(document.querySelectorAll('details.section'));
+  sections.forEach(s => {
+    const key = '__open__' + s.id;
+    if (state[key] !== undefined) {
+      s.open = state[key];
+    }
+    s.addEventListener('toggle', () => {
+      state[key] = s.open;
+      saveState(state);
+    });
+  });
+
+  function updateProgress() {
+    const total = checkboxes.length;
+    const done = checkboxes.filter(c => c.checked).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    document.getElementById('progress-text').textContent = done + ' / ' + total;
+    document.getElementById('progress-fill').style.width = pct + '%';
+
+    // Mark a section "done" if all its checkboxes are checked
+    sections.forEach(s => {
+      const sectionCbs = s.querySelectorAll('ul.tasks input[type="checkbox"]');
+      if (sectionCbs.length === 0) return;
+      const allDone = Array.from(sectionCbs).every(c => c.checked);
+      s.classList.toggle('done', allDone);
+    });
+  }
+  updateProgress();
+
+  function resetProgress() {
+    if (!confirm('Reset all checkboxes? (Section open/closed state is also cleared.)')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    checkboxes.forEach(cb => {
+      cb.checked = false;
+      cb.closest('li').classList.remove('done');
+    });
+    sections.forEach(s => s.classList.remove('done'));
+    updateProgress();
+  }
+
+  // Copy-to-clipboard for code blocks
+  document.querySelectorAll('.code-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const block = btn.parentElement.querySelector('pre');
+      try {
+        await navigator.clipboard.writeText(block.textContent);
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = old;
+          btn.classList.remove('copied');
+        }, 1500);
+      } catch (e) {
+        btn.textContent = 'Copy failed';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      }
+    });
+  });
+
+  // Smooth scroll for TOC links
+  document.querySelectorAll('.toc a').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = a.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        state['__open__' + id] = true;
+        saveState(state);
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

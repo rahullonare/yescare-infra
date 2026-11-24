@@ -1,0 +1,30 @@
+# cert-manager — issues Let's Encrypt certs for ingress hosts.
+# Cluster issuer is created separately in main.tf (kubernetes_manifest).
+
+installCRDs: true
+
+replicaCount: 1   # bump to 2 at Phase 2
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+webhook:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+cainjector:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+prometheus:
+  enabled: false   # flip true once Prometheus Operator is installed

@@ -1,0 +1,39 @@
+apiVersion: v1
+data:
+  tempo.yaml: |
+    server:
+      http_listen_port: 3200
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+
+    ingester:
+      max_block_duration: 5m
+
+    compactor:
+      compaction:
+        block_retention: 48h
+
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"tempo.yaml":"server:\n  http_listen_port: 3200\n\ndistributor:\n  receivers:\n    otlp:\n      protocols:\n        grpc:\n          endpoint: 0.0.0.0:4317\n        http:\n          endpoint: 0.0.0.0:4318\n\ningester:\n  max_block_duration: 5m\n\ncompactor:\n  compaction:\n    block_retention: 48h\n\nstorage:\n  trace:\n    backend: local\n    local:\n      path: /var/tempo/traces\n    wal:\n      path: /var/tempo/wal\n"},"kind":"ConfigMap","metadata":{"annotations":{},"creationTimestamp":"2026-05-24T03:03:32Z","name":"tempo-config","namespace":"monitoring","resourceVersion":"10163634","uid":"9aac5a19-c182-4e77-83fe-5e1d81caa2b7"}}
+  creationTimestamp: "2026-06-13T20:27:34Z"
+  name: tempo-config
+  namespace: monitoring
+  resourceVersion: "3399882"
+  uid: 20490f31-3b65-4c34-977a-357598911f9e

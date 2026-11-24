@@ -1,0 +1,12 @@
+# Matches DEPLOY_STEPS_DEV.md — Bitnami Redis standalone, no auth (dev only)
+architecture: standalone
+auth:
+  enabled: false
+master:
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
